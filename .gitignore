@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+
+# Bitácora de sesión de trabajo, no es parte del paquete instalable
+/CLAUDE.md
+payload/templates/CLAUDE.md

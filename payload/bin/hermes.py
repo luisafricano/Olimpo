@@ -33,7 +33,6 @@ for _stream_name in ("stdout", "stderr", "stdin"):
 
 DEFAULT_PORT = 4096
 DEFAULT_HOST = "127.0.0.1"
-DEFAULT_MODEL = "vast-panel/qwen-coder"
 
 _ES_WINDOWS = os.name == "nt"
 
@@ -303,6 +302,93 @@ def wait_for_server(base_url, timeout_seconds=20, log_path=None):
     fail(f"El servidor no respondio en {timeout_seconds}s.")
 
 
+def _check_backend(base_url, api_key):
+    """Prueba GET {base_url}/models. Devuelve (ok, detalle_legible)."""
+    headers = {}
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+    try:
+        status, _ = http_get_json(f"{base_url.rstrip('/')}/models", headers=headers, timeout=10)
+    except urllib.error.HTTPError as e:
+        return False, f"respondio {e.code}"
+    except Exception as e:
+        return False, f"no responde ({e})"
+    return status == 200, f"respondio status {status}"
+
+
+def pick_builtin_free_model():
+    """Ultimo recurso cuando ningun provider propio (vast.ai, etc.) responde:
+    opencode trae sus propios modelos gratuitos bajo el provider 'opencode/'
+    (ver 'opencode models'), que no dependen de ningun backend nuestro.
+    Devuelve el primero disponible, o None si no hay ninguno."""
+    code, out, err = run_opencode(["models"])
+    if code != 0:
+        return None
+    for line in out.splitlines():
+        line = line.strip()
+        if line.startswith("opencode/"):
+            return line
+    return None
+
+
+def resolve_any_working_model():
+    """Sin --model explicito: en vez de asumir un provider fijo, lista todos
+    los modelos configurados en opencode.json con su estado (activo/caido) y
+    deja elegir. Asi Hermes no depende de que un backend puntual (p.ej. una
+    instancia de vast.ai) este levantado si hay otro disponible."""
+    config = get_resolved_config()
+    providers = config.get("provider") or {}
+    if not providers:
+        fail("No hay ningun provider configurado en opencode (revisa opencode.json).")
+
+    opciones = []
+    for provider_id, provider in providers.items():
+        options = provider.get("options") or {}
+        base_url = options.get("baseURL")
+        if not base_url:
+            continue
+        ok, detalle = _check_backend(base_url, options.get("apiKey"))
+        modelos = list((provider.get("models") or {}).keys()) or ["default"]
+        for modelo_id in modelos:
+            opciones.append({"model": f"{provider_id}/{modelo_id}", "base_url": base_url, "ok": ok, "detalle": detalle})
+
+    if not opciones:
+        fail("Ningun provider configurado en opencode tiene 'options.baseURL'.")
+
+    print("   [HERMES] Modelos configurados en opencode:")
+    default_idx = None
+    for i, op in enumerate(opciones, start=1):
+        estado = "activo" if op["ok"] else f"caido ({op['detalle']})"
+        print(f"     {i}) {op['model']}  -  {estado}")
+        if op["ok"] and default_idx is None:
+            default_idx = i
+
+    if default_idx is None:
+        print("   [HERMES] Ningun backend propio configurado en opencode.json esta respondiendo:")
+        for op in opciones:
+            print(f"     - {op['model']} ({op['base_url']}): {op['detalle']}")
+        fallback = pick_builtin_free_model()
+        if fallback:
+            print(f"   [HERMES] Sigo con el modelo gratuito incorporado de opencode: '{fallback}'.")
+            return fallback
+        print("   [HERMES] No encontre ni siquiera un modelo 'opencode/*' incorporado. Sigo sin --model.")
+        return None
+
+    respuesta = input(f"   Elegi un modelo [{default_idx}]: ").strip()
+    if not respuesta:
+        elegido = opciones[default_idx - 1]
+    else:
+        try:
+            elegido = opciones[int(respuesta) - 1]
+        except (ValueError, IndexError):
+            fail(f"Opcion invalida: {respuesta}")
+        if not elegido["ok"]:
+            fail(f"El modelo '{elegido['model']}' no esta respondiendo ({elegido['detalle']}).")
+
+    print(f"   [HERMES] Usando modelo '{elegido['model']}'.")
+    return elegido["model"]
+
+
 def test_model_connectivity(model):
     provider_id = model.split("/", 1)[0]
     config = get_resolved_config()
@@ -314,35 +400,23 @@ def test_model_connectivity(model):
         )
     options = provider.get("options") or {}
     base_url = options.get("baseURL")
-    api_key = options.get("apiKey")
     if not base_url:
         fail(f"El provider '{provider_id}' no tiene 'options.baseURL' configurado.")
 
-    headers = {}
-    if api_key:
-        headers["Authorization"] = f"Bearer {api_key}"
-
-    try:
-        status, _ = http_get_json(f"{base_url.rstrip('/')}/models", headers=headers, timeout=10)
-    except urllib.error.HTTPError as e:
-        fail(f"El backend del modelo respondio {e.code} en {base_url}/models. No sigo con una sesion sobre un backend caido.")
-    except Exception as e:
-        fail(f"No pude conectarme a {base_url}/models: {e}")
-
-    if status != 200:
-        fail(f"El backend del modelo respondio status {status} en {base_url}/models.")
+    ok, detalle = _check_backend(base_url, options.get("apiKey"))
+    if not ok:
+        fail(f"El backend del modelo {detalle} en {base_url}/models. No sigo con una sesion sobre un backend caido.")
 
 
 def create_session(base_url, model, name):
     # --format json: cada linea de stdout es un evento con 'sessionID' propio.
     # Parseamos ese campo en vez de asumir "la sesion con updated mas reciente"
     # en /session, que es ambiguo si hay otras sesiones con actividad concurrente.
-    code, out, err = run_opencode(
-        [
-            "run", "--attach", base_url, "--model", model,
-            "--title", name, "--format", "json", "Sesion iniciada.",
-        ]
-    )
+    cmd = ["run", "--attach", base_url]
+    if model:
+        cmd += ["--model", model]
+    cmd += ["--title", name, "--format", "json", "Sesion iniciada."]
+    code, out, err = run_opencode(cmd)
     if code != 0:
         fail(f"No pude crear la sesion inicial (exit {code}):\n{err}\n{out}")
 
@@ -673,7 +747,15 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
-    parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument(
+        "--model",
+        default=None,
+        help=(
+            "Modelo a usar (provider/modelo). Si no se indica, Hermes prueba "
+            "cada provider configurado en opencode y usa el primero cuyo "
+            "backend responda, en vez de depender de uno fijo."
+        ),
+    )
     parser.add_argument(
         "--name",
         default=None,
@@ -805,7 +887,10 @@ def main():
 
     reap_sesion_huerfana(base_url, config_dir)
 
-    test_model_connectivity(args.model)
+    if args.model:
+        test_model_connectivity(args.model)
+    else:
+        args.model = resolve_any_working_model()
     imprimir_barra_progreso(55)
     print()
 
@@ -827,7 +912,7 @@ def main():
             "url": base_url,
             "session_id": session_id,
             "session_name": session_name,
-            "model": args.model,
+            "model": args.model or "(default de opencode)",
             "created": time.time(),
             "opencode_version": get_opencode_version(),
             "project_dir": os.path.realpath(os.getcwd()),

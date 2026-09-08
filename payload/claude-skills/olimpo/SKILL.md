@@ -24,17 +24,22 @@ te conectás y prendés el chequeo automático, no creás nada nuevo.
   Hefesto. No lo cambiés, ampliés ni reinterpretés sin que Zeus lo apruebe.
 - Si Hefesto te consulta algo (mensaje `[PARA CLAUDE]` en la sesión
   compartida) que es diagnóstico o ayuda técnica dentro del alcance ya
-  definido por el plan, respondé directo con el prefijo `[CLAUDE]` en esa
+  definido por el plan, respondé directo con el prefijo `[INST]` en esa
   misma sesión.
 - Si la consulta implica una decisión de alcance, arquitectura, o cualquier
   cosa que el plan no cubra explícitamente, no decidís vos. Consultale
   primero a Zeus en esta conversación, esperá su respuesta, y recién ahí
-  contestale a Hefesto con `[CLAUDE]` en la sesión compartida.
+  contestale a Hefesto con `[INST]` en la sesión compartida.
 - Nunca actúes directamente (editar archivos, correr comandos) sobre el
   trabajo de Hefesto para "resolverle" algo — tu única vía de intervención
   en la ejecución es un mensaje en la sesión compartida.
 - Ante la duda de si algo es "ayuda técnica" o "decisión", tratalo como
   decisión y escalá a Zeus.
+- Dos prefijos, dos usos distintos: `[INST]` es una instrucción/respuesta
+  para que Hefesto la aplique; `[CLAUDE]` es chat/contexto sin acción
+  esperada (confirmaciones, mensajes de prueba, aclaraciones que no piden
+  ejecutar nada). Ante la duda de cuál usar, si esperás que Hefesto haga
+  algo con el mensaje, es `[INST]`.
 
 ## Cómo leer la sesión compartida
 
@@ -70,20 +75,25 @@ No lo pidas como paso de rutina — crece con el largo de la sesión.
 Inyectás la respuesta en la misma sesión corriendo, desde una terminal con
 el binario `opencode` disponible:
 
-    opencode run --attach {url} --session {session_id} --format json "[CLAUDE] <tu respuesta>"
+    opencode run --attach {url} --session {session_id} --format json "[INST] <tu respuesta>"
 
-El prefijo `[CLAUDE]` es obligatorio: distingue tus mensajes automatizados
-de lo que Zeus tipea a mano en esa misma sesión.
+Usá `[INST]` cuando el mensaje es para que Hefesto lo aplique (respuesta a
+un `[PARA CLAUDE]`, instrucción directa). Usá `[CLAUDE]` en cambio para
+chat/contexto sin acción esperada — p.ej. un mensaje de prueba de conexión,
+un "recibido, seguí así", o una aclaración de puro contexto. El prefijo
+(uno u otro) es obligatorio: distingue tus mensajes automatizados de lo que
+Zeus tipea a mano en esa misma sesión, y le marca a Hefesto si hay algo
+para ejecutar o no.
 
 ## Qué respondés directo vs qué escalás a Zeus primero
 
-**Directo (sin consultar a Zeus), respondiendo `[CLAUDE]` en el momento:**
+**Directo (sin consultar a Zeus), respondiendo `[INST]` en el momento:**
 - Diagnóstico de un error dentro del alcance ya definido por el plan.
 - Aclarar una instrucción ambigua del plan cuando la aclaración no cambia
   alcance ni archivos afectados.
 
 **Escalás a Zeus primero (en esta conversación, no en la sesión compartida)
-y solo después respondés a Hefesto con `[CLAUDE]`:**
+y solo después respondés a Hefesto con `[INST]`:**
 - Cualquier cosa que implique tocar un archivo o módulo no listado en el plan.
 - Cualquier cambio a una decisión de arquitectura ya tomada en el plan.
 - Un hallazgo de revisión de seguridad/contrato que Hefesto reenvíe y que el
@@ -109,10 +119,12 @@ en la mayoría de los ticks (sesión inactiva, o activa sin nada pendiente).
 
 Cuando el chequeo barato SÍ encuentra algo y este skill se carga:
 
-1. Juntá TODOS los `[PARA CLAUDE]` de Hefesto sin `[CLAUDE]` posterior —
-   puede haber más de uno, atendelos en orden.
+1. Juntá TODOS los `[PARA CLAUDE]` de Hefesto sin `[INST]` posterior —
+   puede haber más de uno, atendelos en orden. Un `[CLAUDE]` posterior no
+   cuenta como respondido: es chat, no la instrucción que resuelve la
+   consulta.
 2. **Timeout de 10 minutos sobre `[ESCALADO]`**: sumá a la lista cualquier
-   `[ESCALADO]` sin `[CLAUDE]` posterior con más de 10 min desde su
+   `[ESCALADO]` sin `[INST]` posterior con más de 10 min desde su
    timestamp — tratalo como `[PARA CLAUDE]`, sin esperar a que Zeus lo
    redirija (salvo que la consulta ya sea, en el fondo, un cambio de plan:
    ahí no hay timeout, se sigue esperando a Zeus).
@@ -131,7 +143,8 @@ ejecutarla.
 ## Lo que nunca hacés en este flujo
 
 - No editás archivos del proyecto de Hefesto vos mismo para resolverle el
-  bloqueo — tu única intervención es el mensaje `[CLAUDE]` en la sesión.
+  bloqueo — tu única intervención es un mensaje `[INST]` (instrucción) o
+  `[CLAUDE]` (chat) en la sesión.
 - No reemplazás ni reescribís el plan original por tu cuenta. Si la consulta
   de Hefesto revela que el plan necesita cambiar, se lo proponés a Zeus como
   actualización de plan — no como instrucción directa a Hefesto que lo

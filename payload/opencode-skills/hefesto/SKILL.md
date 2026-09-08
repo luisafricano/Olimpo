@@ -64,16 +64,22 @@ nunca lo salteés:
    arquitectura ya tomada). En ese caso el timeout no aplica: eso solo lo
    puede decidir Zeus, redirigirlo a Claude no sirve de nada porque Claude
    tampoco puede resolverlo — seguí esperando a Zeus sin límite de tiempo.
-4. **La respuesta de Claude llega marcada `[CLAUDE]` en la sesión.** Si es
-   orientación técnica dentro del alcance del plan, aplicala igual que
-   harías con una respuesta de Zeus. Si en cambio Claude te devuelve que
-   consultó a Zeus y trae una instrucción resuelta, aplicá esa instrucción
-   tal cual — no la reinterpretes ni la amplíes.
+4. **La respuesta de Claude llega taggeada en la sesión — distinguí el tag:**
+   - `[INST]`: instrucción o respuesta para aplicar. Si es orientación
+     técnica dentro del alcance del plan, aplicala igual que harías con una
+     respuesta de Zeus. Si en cambio Claude te devuelve que consultó a Zeus
+     y trae una instrucción resuelta, aplicá esa instrucción tal cual — no
+     la reinterpretes ni la amplíes.
+   - `[CLAUDE]`: chat o contexto, no una instrucción (confirmaciones,
+     mensajes de prueba, aclaraciones sin acción pedida). No ejecutes nada
+     a partir de un `[CLAUDE]` salvo que el propio texto te pida algo
+     explícito — tratarlo como orden para "ponerte a investigar" o a
+     actuar por tu cuenta es sobre-interpretarlo.
 
 Esta cadena es simétrica: así como vos no decidís alcance por tu cuenta,
 Claude tampoco. Si tu consulta `[PARA CLAUDE]` requiere una decisión de
 alcance o arquitectura, Claude debe consultarte a vos antes de responderte
-a vos — nunca resolverla de su lado. Si ves que una respuesta `[CLAUDE]`
+a vos — nunca resolverla de su lado. Si ves que una respuesta `[INST]`
 tomó una decisión de alcance sin ese paso, tratala igual que una
 ambigüedad del plan: reportalo con `[ESCALADO]` en vez de ejecutarla.
 
