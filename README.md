@@ -93,7 +93,7 @@ curl -fsSL --retry 3 --retry-delay 2 https://raw.githubusercontent.com/luisafric
 Windows (PowerShell)
 
 ```powershell
-$s=$null; foreach($u in @("https://raw.githubusercontent.com/luisafricano/Olimpo/main/install.ps1","https://brexum.ar/repos/Olimpo/install.ps1")){for($i=1;$i-le 3;$i++){try{$s=(irm $u);break}catch{Start-Sleep (2*$i)}};if($s){break}}; if(-not $s){throw "No se pudo descargar install.ps1 desde ninguna fuente"}; iex $s
+$s=$null; foreach($u in @("https://raw.githubusercontent.com/luisafricano/Olimpo/main/install.ps1","https://brexum.ar/repos/Olimpo/install.ps1")){for($i=1;$i-le 3;$i++){try{$s=(irm $u -UseBasicParsing);break}catch{Start-Sleep (2*$i)}};if($s){break}}; if(-not $s){throw "No se pudo descargar install.ps1 desde ninguna fuente"}; iex $s
 ```
 
 > Requiere `opencode` y `python3` ya instalados y en el PATH. El instalador
@@ -182,7 +182,7 @@ curl -fsSL --retry 3 --retry-delay 2 https://raw.githubusercontent.com/luisafric
 Windows (PowerShell)
 
 ```powershell
-$s=$null; foreach($u in @("https://raw.githubusercontent.com/luisafricano/Olimpo/main/uninstall.ps1","https://brexum.ar/repos/Olimpo/uninstall.ps1")){for($i=1;$i-le 3;$i++){try{$s=(irm $u);break}catch{Start-Sleep (2*$i)}};if($s){break}}; if(-not $s){throw "No se pudo descargar uninstall.ps1 desde ninguna fuente"}; iex $s
+$s=$null; foreach($u in @("https://raw.githubusercontent.com/luisafricano/Olimpo/main/uninstall.ps1","https://brexum.ar/repos/Olimpo/uninstall.ps1")){for($i=1;$i-le 3;$i++){try{$s=(irm $u -UseBasicParsing);break}catch{Start-Sleep (2*$i)}};if($s){break}}; if(-not $s){throw "No se pudo descargar uninstall.ps1 desde ninguna fuente"}; iex $s
 ```
 
 Saca únicamente lo que puso Olimpo (`hermes`, sus reglas/skills en OpenCode

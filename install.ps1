@@ -29,19 +29,19 @@ function Invoke-WebRequestConReintento($UriPrimaria, $OutFile, $UriFallback) {
     for ($i = 1; $i -le $intentos; $i++) {
         try {
             if ($OutFile) {
-                Invoke-WebRequest -Uri $UriPrimaria -OutFile $OutFile
+                Invoke-WebRequest -Uri $UriPrimaria -OutFile $OutFile -UseBasicParsing
             } else {
-                return Invoke-WebRequest -Uri $UriPrimaria
+                return Invoke-WebRequest -Uri $UriPrimaria -UseBasicParsing
             }
             return
         } catch {
             if ($i -eq $intentos) {
                 if (-not $UriFallback) { throw }
                 if ($OutFile) {
-                    Invoke-WebRequest -Uri $UriFallback -OutFile $OutFile
+                    Invoke-WebRequest -Uri $UriFallback -OutFile $OutFile -UseBasicParsing
                     return
                 } else {
-                    return Invoke-WebRequest -Uri $UriFallback
+                    return Invoke-WebRequest -Uri $UriFallback -UseBasicParsing
                 }
             }
             $espera = [Math]::Pow(2, $i)
@@ -102,10 +102,15 @@ function Aplicar-Lock($ruta) {
 }
 
 function Mostrar-Progreso($actual, $total) {
+    # ASCII simple a proposito: los caracteres de bloque UTF-8 (█/░) se
+    # corrompen ("ââââ") cuando este script se descarga y ejecuta via
+    # Invoke-WebRequest/iex en PowerShell 5.1 sin control fino del
+    # encoding. '#'/'.' funcionan siempre, sin importar el codepage de la
+    # consola.
     $pct = [int](($actual / $total) * 100)
     $llenas = [int]($pct / 5)
     $vacias = 20 - $llenas
-    $barra = ('█' * $llenas) + ('░' * $vacias)
+    $barra = ('#' * $llenas) + ('.' * $vacias)
     Write-Host -NoNewline "`r[Olimpo] [$barra] $pct%"
 }
 
