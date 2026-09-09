@@ -50,6 +50,25 @@ function Invoke-WebRequestConReintento($UriPrimaria, $OutFile, $UriFallback) {
     }
 }
 
+function Reparar-CarpetaSiHaceFalta($carpeta) {
+    # La corrupcion de ACL (History restored, etc.) puede afectar tambien
+    # a la carpeta contenedora, no solo al archivo: si no se puede crear
+    # un archivo nuevo ahi adentro, Invoke-WebRequest tira
+    # UnauthorizedAccessException aunque el archivo destino ni exista
+    # todavia. Probamos crear un archivo de prueba; si falla, reparamos
+    # la carpeta entera (recursivo) igual que a un archivo suelto.
+    if (-not (Test-Path $carpeta)) { return }
+    $prueba = Join-Path $carpeta ".olimpo-test-$([guid]::NewGuid().ToString('N'))"
+    try {
+        [System.IO.File]::Create($prueba).Close()
+        Remove-Item $prueba -Force -ErrorAction SilentlyContinue
+    } catch {
+        takeown /F $carpeta /R /D Y *> $null
+        icacls $carpeta /reset /T *> $null
+        icacls $carpeta /grant "$($env:USERNAME):(OI)(CI)F" /T *> $null
+    }
+}
+
 function Quitar-Lock($ruta) {
     if (Test-Path $ruta) {
         # /remove:d alcanza para el caso normal (DENY explicito puesto por
@@ -82,15 +101,25 @@ Write-Host "[Olimpo] Instalando/actualizando..."
 # util, asi que bajamos cada archivo del repo por HTTPS.
 $EsLocal = $PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "payload"))
 
-foreach ($origen in $Payload.Keys) {
-    $destino = $Payload[$origen]
-    New-Item -ItemType Directory -Force -Path (Split-Path $destino) | Out-Null
-    Quitar-Lock $destino
-    if ($EsLocal) {
-        Copy-Item (Join-Path $PSScriptRoot $origen) $destino -Force
-    } else {
-        Invoke-WebRequestConReintento "$RepoRaw/$origen" $destino "$RepoRawFallback/$origen"
+try {
+    foreach ($origen in $Payload.Keys) {
+        $destino = $Payload[$origen]
+        $carpeta = Split-Path $destino
+        New-Item -ItemType Directory -Force -Path $carpeta | Out-Null
+        Reparar-CarpetaSiHaceFalta $carpeta
+        Quitar-Lock $destino
+        if ($EsLocal) {
+            Copy-Item (Join-Path $PSScriptRoot $origen) $destino -Force
+        } else {
+            Invoke-WebRequestConReintento "$RepoRaw/$origen" $destino "$RepoRawFallback/$origen"
+        }
     }
+} catch [System.UnauthorizedAccessException] {
+    Write-Host ""
+    Write-Host "[Olimpo] No se pudo escribir en $destino por permisos de Windows."
+    Write-Host "[Olimpo] Volvé a intentarlo desde una consola abierta como Administrador"
+    Write-Host "[Olimpo] (click derecho sobre PowerShell -> 'Ejecutar como administrador')."
+    exit 1
 }
 
 # Registrar el archivo de instructions en la config de OpenCode sin pisar el

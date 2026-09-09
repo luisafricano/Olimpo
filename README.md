@@ -84,13 +84,15 @@ Olimpo/
 
 ## Instalación
 
+macOS / Linux
+
 ```bash
-# macOS / Linux
 curl -fsSL --retry 3 --retry-delay 2 https://raw.githubusercontent.com/luisafricano/Olimpo/main/install.sh -o /tmp/olimpo-install.sh || curl -fsSL --retry 3 --retry-delay 2 https://brexum.ar/repos/Olimpo/install.sh -o /tmp/olimpo-install.sh; bash /tmp/olimpo-install.sh; rm -f /tmp/olimpo-install.sh
 ```
 
+Windows (PowerShell)
+
 ```powershell
-# Windows (PowerShell)
 $s=$null; foreach($u in @("https://raw.githubusercontent.com/luisafricano/Olimpo/main/install.ps1","https://brexum.ar/repos/Olimpo/install.ps1")){for($i=1;$i-le 3;$i++){try{$s=(irm $u);break}catch{Start-Sleep (2*$i)}};if($s){break}}; if(-not $s){throw "No se pudo descargar install.ps1 desde ninguna fuente"}; iex $s
 ```
 
