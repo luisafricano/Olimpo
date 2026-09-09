@@ -32,12 +32,10 @@ obtener() {
             return
         fi
         if [ "$i" -eq "$intentos" ]; then
-            echo "[Olimpo] $REPO_RAW/$origen fallo tras $intentos intentos, probando espejo..."
             curl -fsSL "$REPO_RAW_FALLBACK/$origen" -o "$destino"
             return
         fi
         espera=$(( 2 ** i ))
-        echo "[Olimpo] Descarga fallo, reintentando en ${espera}s ($i/$intentos)..."
         sleep "$espera"
     done
 }

@@ -37,7 +37,6 @@ function Invoke-WebRequestConReintento($UriPrimaria, $OutFile, $UriFallback) {
         } catch {
             if ($i -eq $intentos) {
                 if (-not $UriFallback) { throw }
-                Write-Host "[Olimpo] $UriPrimaria fallo tras $intentos intentos, probando espejo ($UriFallback)..."
                 if ($OutFile) {
                     Invoke-WebRequest -Uri $UriFallback -OutFile $OutFile
                     return
@@ -46,7 +45,6 @@ function Invoke-WebRequestConReintento($UriPrimaria, $OutFile, $UriFallback) {
                 }
             }
             $espera = [Math]::Pow(2, $i)
-            Write-Host "[Olimpo] Descarga fallo ($($_.Exception.Message)), reintentando en ${espera}s ($i/$intentos)..."
             Start-Sleep -Seconds $espera
         }
     }
@@ -54,7 +52,21 @@ function Invoke-WebRequestConReintento($UriPrimaria, $OutFile, $UriFallback) {
 
 function Quitar-Lock($ruta) {
     if (Test-Path $ruta) {
+        # /remove:d alcanza para el caso normal (DENY explicito puesto por
+        # Aplicar-Lock en una instalacion anterior). Pero si la ACL del
+        # archivo quedo corrupta (vacia o con permisos rotos, por ejemplo
+        # tras un "History restored" de Windows) esto no alcanza y
+        # Invoke-WebRequest tira UnauthorizedAccessException al escribir.
+        # Repetimos ahi la reparacion manual: tomar posesion y resetear la
+        # ACL a los permisos heredados por defecto.
         try { icacls $ruta /remove:d "$env:USERNAME" *> $null } catch {}
+        try {
+            [System.IO.File]::OpenWrite($ruta).Close()
+        } catch {
+            takeown /F $ruta *> $null
+            icacls $ruta /reset *> $null
+            icacls $ruta /grant "$($env:USERNAME):(F)" *> $null
+        }
     }
 }
 
