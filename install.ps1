@@ -97,8 +97,18 @@ function Quitar-Lock($ruta) {
 }
 
 function Aplicar-Lock($ruta) {
-    icacls $ruta /inheritance:r *> $null
-    icacls $ruta /deny "$($env:USERNAME):(W,D)" *> $null
+    # Antes esto hacia icacls /inheritance:r + /deny (W,D). Se detecto que
+    # ese mecanismo rompe la ejecucion de archivos .cmd: /inheritance:r
+    # borra TODOS los permisos heredados (incluido Control Total de
+    # SYSTEM/Administradores/el propio usuario) sin reemplazarlos, y aun
+    # agregando de vuelta un grant explicito de Read&Execute, cualquier
+    # DENY explicito en el archivo (de cualquier bit, W o D por separado)
+    # terminaba bloqueando tambien la ejecucion — reproducido y confirmado
+    # a mano. El atributo de "solo lectura" de Windows no tiene este
+    # problema: bloquea escritura/borrado normal sin tocar permisos de
+    # ejecucion para nada, y Quitar-Lock ya sabe limpiarlo (se agrego para
+    # el caso del chmod 444 de Git Bash).
+    (Get-Item $ruta -Force).Attributes = (Get-Item $ruta -Force).Attributes -bor [System.IO.FileAttributes]::ReadOnly
 }
 
 function Mostrar-Progreso($actual, $total) {
