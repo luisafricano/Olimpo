@@ -43,6 +43,12 @@ $hermesCmd = Join-Path $OlimpoBin "hermes.cmd"
 function Quitar-Lock($ruta) {
     if (Test-Path $ruta) {
         try { icacls $ruta /remove:d "$env:USERNAME" *> $null } catch {}
+        # Ver la nota equivalente en install.ps1: el atributo de "solo
+        # lectura" de Windows es independiente del ACL (lo puede dejar
+        # puesto un 'chmod 444' corrido por error via Git Bash en el mismo
+        # path) y hay que limpiarlo aparte, sino Remove-Item falla aunque
+        # el ACL este perfecto.
+        try { (Get-Item $ruta -Force).Attributes = (Get-Item $ruta -Force).Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly) } catch {}
         try {
             [System.IO.File]::OpenWrite($ruta).Close()
         } catch {

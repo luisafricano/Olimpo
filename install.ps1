@@ -79,6 +79,13 @@ function Quitar-Lock($ruta) {
         # Repetimos ahi la reparacion manual: tomar posesion y resetear la
         # ACL a los permisos heredados por defecto.
         try { icacls $ruta /remove:d "$env:USERNAME" *> $null } catch {}
+        # El atributo de "solo lectura" de Windows (FILE_ATTRIBUTE_READONLY)
+        # es independiente del ACL y icacls/takeown no lo tocan. Si alguna
+        # vez se corrio install.sh por error via Git Bash en esta misma
+        # carpeta (mismo path ~/.config/opencode/... que usa la version
+        # Windows), su "chmod 444" activa este atributo en NTFS y bloquea
+        # la escritura aunque el ACL este perfecto.
+        try { (Get-Item $ruta -Force).Attributes = (Get-Item $ruta -Force).Attributes -band (-bnot [System.IO.FileAttributes]::ReadOnly) } catch {}
         try {
             [System.IO.File]::OpenWrite($ruta).Close()
         } catch {
@@ -94,6 +101,14 @@ function Aplicar-Lock($ruta) {
     icacls $ruta /deny "$($env:USERNAME):(W,D)" *> $null
 }
 
+function Mostrar-Progreso($actual, $total) {
+    $pct = [int](($actual / $total) * 100)
+    $llenas = [int]($pct / 5)
+    $vacias = 20 - $llenas
+    $barra = ('█' * $llenas) + ('░' * $vacias)
+    Write-Host -NoNewline "`r[Olimpo] [$barra] $pct%"
+}
+
 Write-Host "[Olimpo] Instalando/actualizando..."
 
 # Si es una corrida local (repo ya clonado, ejecutando el script desde adentro)
@@ -102,7 +117,11 @@ Write-Host "[Olimpo] Instalando/actualizando..."
 $EsLocal = $PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "payload"))
 
 try {
+    $totalPasos = $Payload.Count
+    $pasoActual = 0
     foreach ($origen in $Payload.Keys) {
+        $pasoActual++
+        Mostrar-Progreso $pasoActual $totalPasos
         $destino = $Payload[$origen]
         $carpeta = Split-Path $destino
         New-Item -ItemType Directory -Force -Path $carpeta | Out-Null
@@ -114,6 +133,7 @@ try {
             Invoke-WebRequestConReintento "$RepoRaw/$origen" $destino "$RepoRawFallback/$origen"
         }
     }
+    Write-Host ""
 } catch [System.UnauthorizedAccessException] {
     # OJO: nunca usar 'exit' aca. Cuando este script corre pegado dentro de
     # una consola interactiva (via iex, el uso normal), 'exit' cierra la
@@ -172,6 +192,7 @@ $version = if ($EsLocal) { (Get-Content (Join-Path $PSScriptRoot "VERSION") -Raw
 Set-Content (Join-Path $env:USERPROFILE ".olimpo\VERSION") $version -Encoding ascii
 
 Write-Host ""
-Write-Host "[Olimpo] Instalado (version $version)."
+Write-Host "[Olimpo] Instalación completada."
+Write-Host "[Olimpo] Versión instalada: $version."
 Write-Host "[Olimpo] Abrí una terminal nueva y corré 'hermes' en cualquier proyecto para arrancar."
 Write-Host "[Olimpo] Para actualizar, volvé a correr este mismo instalador."

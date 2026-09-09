@@ -55,11 +55,30 @@ declare -A PAYLOAD=(
     ["payload/claude-skills/noloop/SKILL.md"]="$CLAUDE_SKILLS/noloop/SKILL.md"
 )
 
+mostrar_progreso() {
+    # mostrar_progreso <paso actual> <total>
+    # No se usa 'tr' para armar la barra: son caracteres UTF-8 de mas de un
+    # byte (█/░) y 'tr' opera byte a byte, los corrompe. Se arma con un loop.
+    local actual="$1" total="$2"
+    local pct=$(( actual * 100 / total ))
+    local llenas=$(( pct / 5 ))
+    local vacias=$(( 20 - llenas ))
+    local barra_llena="" barra_vacia="" i
+    for (( i=0; i<llenas; i++ )); do barra_llena+="█"; done
+    for (( i=0; i<vacias; i++ )); do barra_vacia+="░"; done
+    printf "\r[Olimpo] [%s%s] %d%%\033[K" "$barra_llena" "$barra_vacia" "$pct"
+}
+
+total="${#PAYLOAD[@]}"
+actual=0
 for origen in "${!PAYLOAD[@]}"; do
+    actual=$(( actual + 1 ))
+    mostrar_progreso "$actual" "$total"
     destino="${PAYLOAD[$origen]}"
     quitar_lock "$destino"
     obtener "$origen" "$destino"
 done
+echo ""
 
 # Registrar el archivo de instructions en la config de OpenCode sin pisar el
 # resto (provider/model que ya tenga configurado el usuario). Requiere
@@ -118,6 +137,7 @@ mkdir -p "$HOME/.olimpo"
 echo "$VERSION" > "$HOME/.olimpo/VERSION"
 
 echo ""
-echo "[Olimpo] Instalado (version $VERSION)."
+echo "[Olimpo] Instalación completada."
+echo "[Olimpo] Versión instalada: $VERSION."
 echo "[Olimpo] Corré 'hermes' en cualquier proyecto para arrancar."
 echo "[Olimpo] Para actualizar, volvé a correr este mismo instalador."
