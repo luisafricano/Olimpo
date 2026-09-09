@@ -115,11 +115,16 @@ try {
         }
     }
 } catch [System.UnauthorizedAccessException] {
+    # OJO: nunca usar 'exit' aca. Cuando este script corre pegado dentro de
+    # una consola interactiva (via iex, el uso normal), 'exit' cierra la
+    # consola ENTERA en vez de solo cortar el script — se pierde el mensaje
+    # de error antes de que de tiempo a leerlo. 'return' corta la ejecucion
+    # del script sin tocar la consola que lo esta corriendo.
     Write-Host ""
     Write-Host "[Olimpo] No se pudo escribir en $destino por permisos de Windows."
     Write-Host "[Olimpo] Volvé a intentarlo desde una consola abierta como Administrador"
     Write-Host "[Olimpo] (click derecho sobre PowerShell -> 'Ejecutar como administrador')."
-    exit 1
+    return
 }
 
 # Registrar el archivo de instructions en la config de OpenCode sin pisar el

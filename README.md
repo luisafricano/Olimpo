@@ -171,6 +171,28 @@ Volvé a correr el mismo comando de instalación — reconcilia todo con la
 última versión del repo sin pisar tu configuración de proveedores/modelos
 de OpenCode.
 
+## Desinstalación
+
+macOS / Linux
+
+```bash
+curl -fsSL --retry 3 --retry-delay 2 https://raw.githubusercontent.com/luisafricano/Olimpo/main/uninstall.sh -o /tmp/olimpo-uninstall.sh || curl -fsSL --retry 3 --retry-delay 2 https://brexum.ar/repos/Olimpo/uninstall.sh -o /tmp/olimpo-uninstall.sh; bash /tmp/olimpo-uninstall.sh; rm -f /tmp/olimpo-uninstall.sh
+```
+
+Windows (PowerShell)
+
+```powershell
+$s=$null; foreach($u in @("https://raw.githubusercontent.com/luisafricano/Olimpo/main/uninstall.ps1","https://brexum.ar/repos/Olimpo/uninstall.ps1")){for($i=1;$i-le 3;$i++){try{$s=(irm $u);break}catch{Start-Sleep (2*$i)}};if($s){break}}; if(-not $s){throw "No se pudo descargar uninstall.ps1 desde ninguna fuente"}; iex $s
+```
+
+Saca únicamente lo que puso Olimpo (`hermes`, sus reglas/skills en OpenCode
+y Claude Code, la entrada de PATH y la línea de `instructions` que agregó a
+la config de OpenCode) — no toca tus otros providers/skills/reglas, ni los
+transcripts de sesiones pasadas (`logs/*.md`), que quedan donde estaban.
+Pide confirmación antes de borrar; para saltarla (uso no interactivo):
+`$Force = $true` antes del bloque de PowerShell, o agregando `-- --yes` al
+final del `bash` en macOS/Linux.
+
 ## Documentación
 
 El protocolo completo de escalamiento (cuándo Hefesto consulta a Zeus, cuándo
