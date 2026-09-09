@@ -24,6 +24,19 @@ $Payload = @{
     "payload/claude-skills/noloop/SKILL.md"      = Join-Path $ClaudeSkills "noloop\SKILL.md"
 }
 
+function Obtener-TextoDeRespuesta($resp) {
+    # .Content puede llegar como byte[] en vez de string cuando el
+    # servidor no manda un Content-Type reconocible como texto (ej.
+    # 'VERSION', sin extension: brexum.ar/Apache ni siquiera manda
+    # Content-Type para ese archivo, y GitHub a veces tampoco es
+    # consistente). Forzamos la decodificacion UTF-8 a mano en ese caso en
+    # vez de confiar en que Invoke-WebRequest la haga sola.
+    if ($resp.Content -is [byte[]]) {
+        return [System.Text.Encoding]::UTF8.GetString($resp.Content)
+    }
+    return $resp.Content
+}
+
 function Invoke-WebRequestConReintento($UriPrimaria, $OutFile, $UriFallback) {
     $intentos = 3
     for ($i = 1; $i -le $intentos; $i++) {
@@ -31,7 +44,7 @@ function Invoke-WebRequestConReintento($UriPrimaria, $OutFile, $UriFallback) {
             if ($OutFile) {
                 Invoke-WebRequest -Uri $UriPrimaria -OutFile $OutFile -UseBasicParsing
             } else {
-                return Invoke-WebRequest -Uri $UriPrimaria -UseBasicParsing
+                return Obtener-TextoDeRespuesta (Invoke-WebRequest -Uri $UriPrimaria -UseBasicParsing)
             }
             return
         } catch {
@@ -41,7 +54,7 @@ function Invoke-WebRequestConReintento($UriPrimaria, $OutFile, $UriFallback) {
                     Invoke-WebRequest -Uri $UriFallback -OutFile $OutFile -UseBasicParsing
                     return
                 } else {
-                    return Invoke-WebRequest -Uri $UriFallback -UseBasicParsing
+                    return Obtener-TextoDeRespuesta (Invoke-WebRequest -Uri $UriFallback -UseBasicParsing)
                 }
             }
             $espera = [Math]::Pow(2, $i)
@@ -202,7 +215,7 @@ Aplicar-Lock $hermesCmd
 
 # Version instalada, para poder comparar en el futuro.
 $version = if ($EsLocal) { (Get-Content (Join-Path $PSScriptRoot "VERSION") -Raw).Trim() } else {
-    (Invoke-WebRequestConReintento "$RepoRaw/VERSION" $null "$RepoRawFallback/VERSION").Content.Trim()
+    (Invoke-WebRequestConReintento "$RepoRaw/VERSION" $null "$RepoRawFallback/VERSION").Trim()
 }
 Set-Content (Join-Path $env:USERPROFILE ".olimpo\VERSION") $version -Encoding ascii
 
