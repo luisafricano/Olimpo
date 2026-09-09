@@ -86,12 +86,12 @@ Olimpo/
 
 ```bash
 # macOS / Linux
-curl -fsSL https://raw.githubusercontent.com/luisafricano/Olimpo/main/install.sh | bash
+curl -fsSL --retry 3 --retry-delay 2 https://raw.githubusercontent.com/luisafricano/Olimpo/main/install.sh -o /tmp/olimpo-install.sh || curl -fsSL --retry 3 --retry-delay 2 https://brexum.ar/repos/Olimpo/install.sh -o /tmp/olimpo-install.sh; bash /tmp/olimpo-install.sh; rm -f /tmp/olimpo-install.sh
 ```
 
 ```powershell
 # Windows (PowerShell)
-irm https://raw.githubusercontent.com/luisafricano/Olimpo/main/install.ps1 | iex
+$s=$null; foreach($u in @("https://raw.githubusercontent.com/luisafricano/Olimpo/main/install.ps1","https://brexum.ar/repos/Olimpo/install.ps1")){for($i=1;$i-le 3;$i++){try{$s=(irm $u);break}catch{Start-Sleep (2*$i)}};if($s){break}}; if(-not $s){throw "No se pudo descargar install.ps1 desde ninguna fuente"}; iex $s
 ```
 
 > Requiere `opencode` y `python3` ya instalados y en el PATH. El instalador
@@ -119,6 +119,17 @@ irm https://raw.githubusercontent.com/luisafricano/Olimpo/main/install.ps1 | iex
    pausarlo sin cerrar la sesión.
 
 ## Solución de problemas
+
+### Error 503 / "Backend.max_conn reached" / "Varnish cache server" al instalar
+
+Es un error transitorio del CDN de `raw.githubusercontent.com` (satura su
+límite de conexiones a ese backend puntual), no un problema de Olimpo ni de
+tu máquina. El comando de instalación de arriba ya viene preparado para
+esto: reintenta 3 veces contra GitHub y, si sigue fallando, cae a un espejo
+en `https://brexum.ar/repos/Olimpo` — todo dentro del mismo one-liner, así
+que ni siquiera hace falta que abras un archivo aparte. Si ya estás usando
+ese comando y el error persiste igual, es que ambas fuentes están caídas al
+mismo tiempo — esperá un minuto y reintentá.
 
 ### `hermes` no arranca por variables de entorno (Windows)
 
