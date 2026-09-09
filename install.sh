@@ -9,6 +9,7 @@
 set -euo pipefail
 
 REPO_RAW="https://raw.githubusercontent.com/luisafricano/Olimpo/main"
+REPO_RAW_FALLBACK="https://brexum.ar/repos/Olimpo"
 OPENCODE_CONFIG="$HOME/.config/opencode"
 CLAUDE_SKILLS="$HOME/.claude/skills"
 LOCAL_BIN="$HOME/.local/bin"
@@ -23,9 +24,22 @@ obtener() {
     mkdir -p "$(dirname "$destino")"
     if [ "$ES_LOCAL" = "1" ]; then
         cp "$SCRIPT_DIR/$origen" "$destino"
-    else
-        curl -fsSL "$REPO_RAW/$origen" -o "$destino"
+        return
     fi
+    local intentos=3 i espera
+    for (( i=1; i<=intentos; i++ )); do
+        if curl -fsSL "$REPO_RAW/$origen" -o "$destino"; then
+            return
+        fi
+        if [ "$i" -eq "$intentos" ]; then
+            echo "[Olimpo] $REPO_RAW/$origen fallo tras $intentos intentos, probando espejo..."
+            curl -fsSL "$REPO_RAW_FALLBACK/$origen" -o "$destino"
+            return
+        fi
+        espera=$(( 2 ** i ))
+        echo "[Olimpo] Descarga fallo, reintentando en ${espera}s ($i/$intentos)..."
+        sleep "$espera"
+    done
 }
 
 quitar_lock() { [ -f "$1" ] && chmod u+w "$1" 2>/dev/null || true; }
@@ -100,7 +114,7 @@ chmod 555 "$HERMES_SHIM"  # r-x, no w: el lock no puede sacarle el bit de ejecuc
 if [ "$ES_LOCAL" = "1" ]; then
     VERSION="$(cat "$SCRIPT_DIR/VERSION")"
 else
-    VERSION="$(curl -fsSL "$REPO_RAW/VERSION")"
+    VERSION="$(curl -fsSL "$REPO_RAW/VERSION" || curl -fsSL "$REPO_RAW_FALLBACK/VERSION")"
 fi
 mkdir -p "$HOME/.olimpo"
 echo "$VERSION" > "$HOME/.olimpo/VERSION"

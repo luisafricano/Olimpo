@@ -9,6 +9,7 @@
 $ErrorActionPreference = "Stop"
 
 $RepoRaw = "https://raw.githubusercontent.com/luisafricano/Olimpo/main"
+$RepoRawFallback = "https://brexum.ar/repos/Olimpo"
 $OpencodeConfig = Join-Path $env:USERPROFILE ".config\opencode"
 $ClaudeSkills = Join-Path $env:USERPROFILE ".claude\skills"
 $OlimpoBin = Join-Path $env:USERPROFILE ".olimpo\bin"
@@ -21,6 +22,34 @@ $Payload = @{
     "payload/claude-skills/olimpout/SKILL.md"    = Join-Path $ClaudeSkills "olimpout\SKILL.md"
     "payload/claude-skills/oloop/SKILL.md"       = Join-Path $ClaudeSkills "oloop\SKILL.md"
     "payload/claude-skills/noloop/SKILL.md"      = Join-Path $ClaudeSkills "noloop\SKILL.md"
+}
+
+function Invoke-WebRequestConReintento($UriPrimaria, $OutFile, $UriFallback) {
+    $intentos = 3
+    for ($i = 1; $i -le $intentos; $i++) {
+        try {
+            if ($OutFile) {
+                Invoke-WebRequest -Uri $UriPrimaria -OutFile $OutFile
+            } else {
+                return Invoke-WebRequest -Uri $UriPrimaria
+            }
+            return
+        } catch {
+            if ($i -eq $intentos) {
+                if (-not $UriFallback) { throw }
+                Write-Host "[Olimpo] $UriPrimaria fallo tras $intentos intentos, probando espejo ($UriFallback)..."
+                if ($OutFile) {
+                    Invoke-WebRequest -Uri $UriFallback -OutFile $OutFile
+                    return
+                } else {
+                    return Invoke-WebRequest -Uri $UriFallback
+                }
+            }
+            $espera = [Math]::Pow(2, $i)
+            Write-Host "[Olimpo] Descarga fallo ($($_.Exception.Message)), reintentando en ${espera}s ($i/$intentos)..."
+            Start-Sleep -Seconds $espera
+        }
+    }
 }
 
 function Quitar-Lock($ruta) {
@@ -48,7 +77,7 @@ foreach ($origen in $Payload.Keys) {
     if ($EsLocal) {
         Copy-Item (Join-Path $PSScriptRoot $origen) $destino -Force
     } else {
-        Invoke-WebRequest -Uri "$RepoRaw/$origen" -OutFile $destino
+        Invoke-WebRequestConReintento "$RepoRaw/$origen" $destino "$RepoRawFallback/$origen"
     }
 }
 
@@ -92,7 +121,7 @@ Aplicar-Lock $hermesCmd
 
 # Version instalada, para poder comparar en el futuro.
 $version = if ($EsLocal) { (Get-Content (Join-Path $PSScriptRoot "VERSION") -Raw).Trim() } else {
-    (Invoke-WebRequest -Uri "$RepoRaw/VERSION").Content.Trim()
+    (Invoke-WebRequestConReintento "$RepoRaw/VERSION" $null "$RepoRawFallback/VERSION").Content.Trim()
 }
 Set-Content (Join-Path $env:USERPROFILE ".olimpo\VERSION") $version -Encoding ascii
 
