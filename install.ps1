@@ -125,15 +125,10 @@ function Aplicar-Lock($ruta) {
 }
 
 function Mostrar-Progreso($actual, $total) {
-    # ASCII simple a proposito: los caracteres de bloque UTF-8 (█/░) se
-    # corrompen ("ââââ") cuando este script se descarga y ejecuta via
-    # Invoke-WebRequest/iex en PowerShell 5.1 sin control fino del
-    # encoding. '#'/'.' funcionan siempre, sin importar el codepage de la
-    # consola.
     $pct = [int](($actual / $total) * 100)
     $llenas = [int]($pct / 5)
     $vacias = 20 - $llenas
-    $barra = ('#' * $llenas) + ('.' * $vacias)
+    $barra = ('█' * $llenas) + ('░' * $vacias)
     Write-Host -NoNewline "`r[Olimpo] [$barra] $pct%"
 }
 
