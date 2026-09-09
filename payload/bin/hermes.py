@@ -154,7 +154,15 @@ def _copiar_windows(texto):
     user32 = ctypes.windll.user32
     kernel32 = ctypes.windll.kernel32
 
-    if not user32.OpenClipboard(0):
+    # OpenClipboard puede fallar si otro proceso lo tiene abierto un
+    # instante (historial de portapapeles de Windows, un clipboard manager,
+    # antivirus); Microsoft recomienda reintentar en vez de rendirse al
+    # primer intento, porque el lock suele liberarse enseguida.
+    for _ in range(10):
+        if user32.OpenClipboard(0):
+            break
+        time.sleep(0.05)
+    else:
         return False
     try:
         user32.EmptyClipboard()
